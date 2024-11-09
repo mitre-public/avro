@@ -1406,13 +1406,46 @@ public class TestReflect {
   @Test
   void avroDoc() {
     check(DocTest.class,
-        "{\"type\":\"record\",\"name\":\"DocTest\",\"namespace\":\"org.apache.avro.reflect.TestReflect\","
-            + "\"doc\":\"DocTest class docs\"," + "\"fields\":["
-            + "{\"name\":\"defaultTest\",\"type\":{\"type\":\"record\",\"name\":\"DefaultTest\","
-            + "\"fields\":[{\"name\":\"foo\",\"type\":\"int\",\"default\":1}]},\"doc\":\"And again\"},"
-            + "{\"name\":\"enums\",\"type\":{\"type\":\"enum\",\"name\":\"DocTestEnum\","
-            + "\"symbols\":[\"ENUM_1\",\"ENUM_2\"]},\"doc\":\"Some other Documentation\"},"
-            + "{\"name\":\"foo\",\"type\":\"int\",\"doc\":\"Some Documentation\"}" + "]}");
+        "{\"type\":\"record\",\"name\":\"DocTest\",\"namespace\":\"org.apache.avro.reflect.TestReflect\",\"doc\":\"DocTest class docs\",\"fields\":[{\"name\":\"foo\",\"type\":\"int\",\"doc\":\"Some Documentation\"},{\"name\":\"enums\",\"type\":{\"type\":\"enum\",\"name\":\"DocTestEnum\",\"symbols\":[\"ENUM_1\",\"ENUM_2\"]},\"doc\":\"Some other Documentation\"},{\"name\":\"defaultTest\",\"type\":{\"type\":\"record\",\"name\":\"DefaultTest\",\"fields\":[{\"name\":\"foo\",\"type\":\"int\",\"default\":1}]},\"doc\":\"And again\"}]}");
+  }
+
+  static abstract class AbstractParent1<T> {
+    public T first;
+  }
+
+  static abstract class AbstractParent2<T1, T2> extends AbstractParent1<T1> {
+    public T2 second;
+  }
+
+  static class GenericTestClass extends AbstractParent2<Integer, Float> {
+    // super fields should be first
+    public Double third;
+  }
+
+  @Test
+  public void testGenericReflection() {
+    check(GenericTestClass.class,
+        "{\"type\":\"record\",\"name\":\"GenericTestClass\"," + "\"namespace\":\"org.apache.avro.reflect.TestReflect\","
+            + "\"fields\":[{\"name\":\"first\",\"type\":\"int\"}," + "{\"name\":\"second\",\"type\":\"float\"},"
+            + "{\"name\":\"third\",\"type\":\"double\"}]}");
+  }
+
+  private static class OrderTest {
+    @AvroOrder(Field.Order.IGNORE)
+    int foo;
+    @AvroOrder(Field.Order.DESCENDING)
+    String bar;
+    String fooBar;
+  }
+
+  @Test
+  public void testAvroOrder() {
+    Schema schema = ReflectData.get().getSchema(OrderTest.class);
+
+    assertEquals(schema.getField("foo").order(), Field.Order.IGNORE);
+    assertEquals(schema.getField("bar").order(), Field.Order.DESCENDING);
+    // NOTE: The default field order is ASCENDING
+    assertEquals(schema.getField("fooBar").order(), Field.Order.ASCENDING);
   }
 
 }

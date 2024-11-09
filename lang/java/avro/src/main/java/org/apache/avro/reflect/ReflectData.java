@@ -17,6 +17,7 @@
  */
 package org.apache.avro.reflect;
 
+import com.googlecode.gentyref.GenericTypeReflector;
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.AvroTypeException;
 import org.apache.avro.Conversion;
@@ -56,10 +57,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -93,8 +94,8 @@ public class ReflectData extends SpecificData {
     }
 
     @Override
-    protected Schema createFieldSchema(Field field, Map<String, Schema> names) {
-      Schema schema = super.createFieldSchema(field, names);
+    protected Schema createFieldSchema(Field field, Class c, Map<String, Schema> names) {
+      Schema schema = super.createFieldSchema(field, c, names);
       if (field.getType().isPrimitive()) {
         // for primitive values, such as int, a null will result in a
         // NullPointerException at read time
@@ -730,7 +731,7 @@ public class ReflectData extends SpecificData {
           for (Field field : getCachedFields(c))
             if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0
                 && !field.isAnnotationPresent(AvroIgnore.class)) {
-              Schema fieldSchema = createFieldSchema(field, names);
+              Schema fieldSchema = createFieldSchema(field, c, names);
               annotatedDoc = field.getAnnotation(AvroDoc.class); // Docstring
               doc = (annotatedDoc != null) ? annotatedDoc.value() : null;
 
@@ -741,7 +742,11 @@ public class ReflectData extends SpecificData {
               if (STRING_OUTER_PARENT_REFERENCE.equals(fieldName)) {
                 throw new AvroTypeException("Class " + fullName + " must be a static inner class");
               }
-              Schema.Field recordField = new Schema.Field(fieldName, fieldSchema, doc, defaultValue);
+
+              AvroOrder fieldOrder = field.getAnnotation(AvroOrder.class);
+              Schema.Field recordField = (null == fieldOrder)
+                  ? new Schema.Field(fieldName, fieldSchema, doc, defaultValue)
+                  : new Schema.Field(fieldName, fieldSchema, doc, defaultValue, fieldOrder.value());
 
               AvroMeta[] metadata = field.getAnnotationsByType(AvroMeta.class); // add metadata
               for (AvroMeta meta : metadata) {
@@ -843,26 +848,32 @@ public class ReflectData extends SpecificData {
   }
 
   private static Field[] getFields(Class<?> recordClass, boolean excludeJava) {
-    Field[] fieldsList;
+    LinkedList<Class<?>> classes = new LinkedList<>();
+    Class<?> cls = recordClass;
+    while (cls != null) {
+      // superclasses to the top of queue
+      classes.addFirst(cls);
+      cls = cls.getSuperclass();
+    }
     Map<String, Field> fields = new LinkedHashMap<>();
-    Class<?> c = recordClass;
-    do {
-      if (excludeJava && c.getPackage() != null && c.getPackage().getName().startsWith("java."))
-        break; // skip java built-in classes
-      Field[] declaredFields = c.getDeclaredFields();
-      Arrays.sort(declaredFields, Comparator.comparing(Field::getName));
-      for (Field field : declaredFields)
-        if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0)
-          if (fields.put(field.getName(), field) != null)
-            throw new AvroTypeException(c + " contains two fields named: " + field);
-      c = c.getSuperclass();
-    } while (c != null);
-    fieldsList = fields.values().toArray(new Field[0]);
-    return fieldsList;
+    for (Class<?> c : classes) {
+      if (excludeJava && c.getPackage() != null && c.getPackage().getName().startsWith("java.")) {
+        continue;
+      }
+
+      for (Field field : c.getDeclaredFields())
+        if (isNotStaticOrTransient(field) && fields.put(field.getName(), field) != null)
+          throw new AvroTypeException(c + " contains two fields named: " + field);
+    }
+    return fields.values().toArray(new Field[0]);
+  }
+
+  private static boolean isNotStaticOrTransient(Field field) {
+    return (field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0;
   }
 
   /** Create a schema for a field. */
-  protected Schema createFieldSchema(Field field, Map<String, Schema> names) {
+  protected Schema createFieldSchema(Field field, Class parent, Map<String, Schema> names) {
     AvroEncode enc = field.getAnnotation(AvroEncode.class);
     if (enc != null)
       try {
@@ -879,7 +890,7 @@ public class ReflectData extends SpecificData {
     if (union != null)
       return getAnnotatedUnion(union, names);
 
-    Schema schema = createSchema(field.getGenericType(), names);
+    Schema schema = createSchema(GenericTypeReflector.getExactFieldType(field, parent), names);
     if (field.isAnnotationPresent(Stringable.class)) { // Stringable
       schema = Schema.create(Schema.Type.STRING);
     }

@@ -27,7 +27,9 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
+  <groupId>org.mitre.cda</groupId>
   <artifactId>avro</artifactId>
+  <version>1.0.0-${parent.version}</version>
 
   <name>Apache Avro</name>
   <url>https://avro.apache.org</url>
@@ -219,6 +221,11 @@
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-compress</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.googlecode.gentyref</groupId>
+      <artifactId>gentyref</artifactId>
+      <version>1.2.0</version>
     </dependency>
     <dependency>
       <groupId>org.xerial.snappy</groupId>
