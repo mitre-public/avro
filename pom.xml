@@ -74,9 +74,9 @@
   </modules>
 
   <scm>
-    <connection>scm:git:https://github.com/apache/avro</connection>
-    <developerConnection>scm:git:https://github.com/apache/avro</developerConnection>
-    <url>scm:git:https://github.com/apache/avro</url>
+    <connection>scm:git:https://github.com/mitre-public/avro</connection>
+    <developerConnection>scm:git:https://github.com/mitre-public/avro</developerConnection>
+    <url>scm:git:https://github.com/mitre-public/avro</url>
   </scm>
 
   <issueManagement>
