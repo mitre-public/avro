@@ -53,6 +53,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -1985,10 +1986,16 @@ public abstract class Schema extends JsonProperties implements Serializable {
     });
   }
 
+  private static String translateLegacyNamespace(String namespace) {
+    if (namespace.endsWith("$")) {
+      namespace = namespace.substring(0, namespace.length() - 1);
+    }
+    return namespace.replace("$", ".");
+  }
+
   private static Name parseName(JsonNode schema, String currentNameSpace) {
-    String space = getOptionalText(schema, "namespace");
-    if (space == null)
-      space = currentNameSpace;
+    String space = Optional.ofNullable(getOptionalText(schema, "namespace")).map(Schema::translateLegacyNamespace)
+        .orElse(currentNameSpace);
     return new Name(getRequiredText(schema, "name", "No name in schema"), space);
   }
 

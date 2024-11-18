@@ -29,7 +29,7 @@
 
   <groupId>org.mitre.cda</groupId>
   <artifactId>avro</artifactId>
-  <version>1.0.0-${parent.version}</version>
+  <version>1.0.1-${parent.version}</version>
 
   <name>Apache Avro</name>
   <url>https://avro.apache.org</url>
